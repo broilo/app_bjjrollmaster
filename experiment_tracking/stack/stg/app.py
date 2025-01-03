@@ -5,8 +5,7 @@ import tensorflow_hub as hub
 import numpy as np
 import subprocess
 
-# Load the PoseNet model
-# Download the model from TF Hub.
+# Load the PoseNet model from TF Hub
 movenet = hub.load(
     "https://www.kaggle.com/models/google/movenet/TensorFlow2/singlepose-lightning/4"
 )
@@ -27,19 +26,43 @@ def calculate_distance(point1, point2):
 
 
 def assign_fighters(landmarks):
-    """Assign fighters based on initial horizontal positions."""
+    """Assign fighters based on initial horizontal positions or update positions."""
     global fighter_a_landmarks, fighter_b_landmarks
 
     # Get center x-coordinates of landmarks (e.g., hips)
     left_hip_x = landmarks[11][1]
     right_hip_x = landmarks[12][1]
     center_x = (left_hip_x + right_hip_x) / 2
+    print(f"Center X: {center_x}")
 
-    # Assign fighters based on horizontal position
-    if fighter_a_landmarks is None and fighter_b_landmarks is None:
-        if center_x < 0.5:  # Left side of the frame
+    # If fighters are already assigned, check if they need to be reassigned
+    if fighter_a_landmarks is not None and fighter_b_landmarks is not None:
+        # Reassign if fighter's center_x position crosses over
+        if center_x < 0.5:
+            if (
+                fighter_b_landmarks
+                and center_x
+                > (fighter_b_landmarks[11][1] + fighter_b_landmarks[12][1]) / 2
+            ):
+                fighter_a_landmarks, fighter_b_landmarks = (
+                    fighter_b_landmarks,
+                    fighter_a_landmarks,
+                )
+        else:
+            if (
+                fighter_a_landmarks
+                and center_x
+                < (fighter_a_landmarks[11][1] + fighter_a_landmarks[12][1]) / 2
+            ):
+                fighter_a_landmarks, fighter_b_landmarks = (
+                    fighter_b_landmarks,
+                    fighter_a_landmarks,
+                )
+    else:
+        # Assign fighters based on horizontal position if they are not yet assigned
+        if center_x < 0.5:
             fighter_a_landmarks = landmarks
-        else:  # Right side of the frame
+        else:
             fighter_b_landmarks = landmarks
 
 
@@ -50,13 +73,15 @@ def analyze_pose_and_score(landmarks, is_fighter_a):
     feedback = []
 
     try:
-        # Example key landmarks for PoseNet (indexes are based on PoseNet's body parts)
-        left_knee = landmarks[25]  # PoseNet left knee index
-        right_knee = landmarks[26]  # PoseNet right knee index
-        left_hip = landmarks[11]  # PoseNet left hip index
-        right_hip = landmarks[12]  # PoseNet right hip index
+        left_knee = landmarks[25]
+        right_knee = landmarks[26]
+        left_hip = landmarks[11]
+        right_hip = landmarks[12]
 
-        # 1. Detect Takedown
+        print(f"Left Hip: {left_hip}, Right Hip: {right_hip}")
+        print(f"Left Knee: {left_knee}, Right Knee: {right_knee}")
+
+        # Checking takedown (example condition)
         if (
             calculate_distance(left_hip, right_hip) > 0.5
             and abs(left_hip[0] - right_hip[0]) > 0.2
@@ -66,21 +91,21 @@ def analyze_pose_and_score(landmarks, is_fighter_a):
             )
             score += 2
 
-        # 2. Detect Sweep
+        # Checking sweep (example condition)
         if left_knee[0] < left_hip[0] and right_knee[0] < right_hip[0]:
             feedback.append(
                 f"{'Fighter A' if is_fighter_a else 'Fighter B'}: Sweep detected!"
             )
             score += 2
 
-        # 3. Detect Guard Pass
+        # Checking guard pass (example condition)
         if calculate_distance(left_hip, right_hip) < 0.3 and left_hip[0] > left_knee[0]:
             feedback.append(
                 f"{'Fighter A' if is_fighter_a else 'Fighter B'}: Guard Pass detected!"
             )
             score += 3
 
-        # 4. Detect Mount
+        # Checking mount position (example condition)
         if (
             left_knee[0] < left_hip[0]
             and right_knee[0] < right_hip[0]
@@ -91,7 +116,7 @@ def analyze_pose_and_score(landmarks, is_fighter_a):
             )
             score += 4
 
-        # 5. Detect Back Control
+        # Checking back control (example condition)
         if (
             calculate_distance(left_knee, left_hip) < 0.3
             and calculate_distance(right_knee, right_hip) < 0.3
@@ -115,37 +140,32 @@ def analyze_pose_and_score(landmarks, is_fighter_a):
 
 
 # Load video from a YouTube link using yt-dlp
-video_url = "https://www.youtube.com/watch?v=7Gy7WuGq1tw"  # Replace with your YouTube video link
+video_url = "https://www.youtube.com/watch?v=o28Uq3XuMQM"  # Replace with your YouTube video link
 
-# Fetch the video URL with yt-dlp
 ydl_opts = {
-    "format": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/mp4",  # Use best video and audio format
+    "format": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/mp4",
 }
 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
     info = ydl.extract_info(video_url, download=False)
 
-    # Find the best quality video URL
     video_stream_url = None
     for format in info["formats"]:
-        if (
-            format.get("ext") == "mp4" and format.get("acodec") != "none"
-        ):  # Ensure video and audio
+        if format.get("ext") == "mp4" and format.get("acodec") != "none":
             video_stream_url = format["url"]
             break
 
     if video_stream_url is None:
         raise ValueError("Unable to find a suitable video stream URL.")
 
-# Use ffmpeg to open the video stream
 command = [
     "ffmpeg",
     "-i",
-    video_stream_url,  # Input stream URL
+    video_stream_url,
     "-f",
-    "rawvideo",  # Output raw video
+    "rawvideo",
     "-pix_fmt",
-    "bgr24",  # Output pixel format (BGR for OpenCV compatibility)
-    "-an",  # Disable audio
+    "bgr24",
+    "-an",
     "-",
 ]
 
@@ -153,38 +173,27 @@ ffmpeg_process = subprocess.Popen(
     command, stdout=subprocess.PIPE, stderr=subprocess.PIPE
 )
 
-# Read and process video frames from ffmpeg's stdout
 while True:
-    raw_frame = ffmpeg_process.stdout.read(
-        1920 * 1080 * 3
-    )  # Adjust frame size to video resolution
+    raw_frame = ffmpeg_process.stdout.read(1920 * 1080 * 3)
     if not raw_frame:
         break
 
-    # Convert raw frame to numpy array
-    frame = np.frombuffer(raw_frame, np.uint8).reshape(
-        (1080, 1920, 3)
-    )  # Adjust resolution accordingly
+    frame = np.frombuffer(raw_frame, np.uint8).reshape((1080, 1920, 3))
 
-    # Convert frame to RGB for pose detection
     rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-    # Run inference with PoseNet
     input_image = tf.convert_to_tensor(rgb_frame)
     input_image = tf.image.resize(input_image, (192, 192))
-    input_image = tf.expand_dims(input_image, axis=0)  # Add batch dimension
+    input_image = tf.expand_dims(input_image, axis=0)
     outputs = model(input_image)
 
-    # Extract keypoints (pose landmarks) from PoseNet output
     keypoints = outputs["output_0"].numpy()
 
-    # Process pose landmarks and assign fighters
     if keypoints is not None:
-        landmarks = keypoints[0, 0]  # Extract keypoints for the first frame
+        landmarks = keypoints[0, 0]
 
         assign_fighters(landmarks)
 
-        # Analyze scoring separately for each fighter
         feedback_a = (
             analyze_pose_and_score(fighter_a_landmarks, is_fighter_a=True)
             if fighter_a_landmarks
@@ -196,7 +205,6 @@ while True:
             else []
         )
 
-        # Display feedback and scores
         feedback = feedback_a + feedback_b
         cv2.putText(
             frame,
@@ -218,15 +226,15 @@ while True:
                 2,
             )
 
-    # Show the video frame
     cv2.imshow("Jiu-Jitsu Match Scoring", frame)
 
-    # Exit loop on 'q' key press
     if cv2.waitKey(1) & 0xFF == ord("q"):
         break
 
-# Clean up
 ffmpeg_process.stdout.close()
 ffmpeg_process.stderr.close()
 ffmpeg_process.wait()
 cv2.destroyAllWindows()
+
+# Print final scores
+print(f"Final Scores: Fighter A: {fighter_a_score}, Fighter B: {fighter_b_score}")
