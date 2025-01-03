@@ -7,8 +7,10 @@ import subprocess
 
 # Load the PoseNet model
 # Download the model from TF Hub.
-movenet = hub.load("https://www.kaggle.com/models/google/movenet/TensorFlow2/singlepose-lightning/4")
-model = movenet.signatures['serving_default']
+movenet = hub.load(
+    "https://www.kaggle.com/models/google/movenet/TensorFlow2/singlepose-lightning/4"
+)
+model = movenet.signatures["serving_default"]
 
 # Initialize score variables
 fighter_a_score = 0
