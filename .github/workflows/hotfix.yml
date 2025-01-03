@@ -1,0 +1,57 @@
+name: Hotfix CI
+
+on:
+  push:
+    branches:
+      - 'hotfix/*'  # Acionado para qualquer push nos branches de hotfix
+  pull_request:
+    branches:
+      - 'main'  # Acionado para PRs de hotfix direcionados ao `main`
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.x'
+
+    - name: Install Poetry
+      run: |
+        curl -sSL https://install.python-poetry.org | python3 -
+
+    - name: Cache Poetry dependencies
+      uses: actions/cache@v2
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-poetry-
+
+    - name: Install dependencies
+      run: |
+        poetry install  # Use poetry to install dependencies
+        poetry add --group dev black pylint  # Add linting dependencies (if not already added)
+
+    - name: Run Black (check)
+      run: |
+        poetry run black --check --verbose ./experiment_tracking
+
+    - name: Run PyLint
+      run: |
+        PYLINT_SRC="./experiment_tracking"
+        find $PYLINT_SRC -name "*.py" -exec pylint {} \; || exit 1
+
+    - name: Run Black (auto-format)
+      if: failure()  # Auto-format if Black check fails
+      run: |
+        if poetry show > /dev/null 2>&1; then
+          poetry run black ./experiment_tracking
+        else
+          echo "Poetry environment not found. Skipping Black auto-format."
+        fi
