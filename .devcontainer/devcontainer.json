@@ -1,0 +1,54 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+// README at: https://github.com/devcontainers/templates/tree/main/src/python
+{
+    "build": {
+        "context": "..",
+        "dockerfile": "./Dockerfile"
+    },
+    // "workspaceMount": "source=${localWorkspaceFolder},target=/opt/app-root/src/workspace/,type=bind",
+    // "workspaceFolder": "/opt/app-root/src/workspace/",
+    // Features to add to the dev container. More info: https://containers.dev/features.
+    "features": {
+        "ghcr.io/devcontainers/features/github-cli": "latest"
+    },
+
+    // Use 'forwardPorts' to make a list of ports inside the container available locally.
+    // "forwardPorts": [],
+
+    // Use 'postCreateCommand' to run commands after the container is created.
+    "postCreateCommand": "poetry install --no-interaction --no-ansi --no-root",
+
+    "postAttachCommand": {
+        "git_safe": "git config --global --add safe.directory ${containerWorkspaceFolder}"
+    },
+
+    "mounts": [
+        "source=${localWorkspaceFolder},target=/app,type=bind,consistency=cached"
+    ],
+
+    "workspaceFolder": "/app",
+
+    // Configure tool-specific properties.
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-toolsai.jupyter",
+                "ms-python.black-formatter",
+                "ms-azuretools.vscode-docker",
+                "ms-python.python",
+                "ms-python.debugpy",
+                "ms-python.vscode-pylance",
+                "oderwat.indent-rainbow",
+                "tal7aouy.rainbow-bracket",
+                "AykutSarac.jsoncrack-vscode",
+                "ZainChen.json",
+                "GrapeCity.gc-excelviewer"
+            ],
+            "settings": {
+                "python.terminal.activateEnvInCurrentTerminal": true
+            }
+        }
+    },
+    // Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
+    "remoteUser": "appuser"
+}

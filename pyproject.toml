@@ -1,0 +1,43 @@
+[tool.poetry]
+name = "app-bjjrollmaster"
+version = "0.1.0"
+description = "Jiu-Jitsu Roll Scoring and Pose Detection"
+authors = ["Mateus Broilo <mateus.rocha@poatek.com>"]
+readme = "README.md"
+license = "MIT"
+package-mode = false
+
+[tool.poetry.dependencies]
+python = ">=3.12, <3.13"
+pandas = "^2.2.2"
+matplotlib = "^3.9.2"
+seaborn = "^0.13.2"
+python-dotenv = "^1.0.1"
+nest-asyncio = "^1.6.0"
+ipykernel = "^6.29.5"
+setuptools = "^75.1.0"
+llvmlite = "^0.43.0"
+numba = "^0.60.0"
+yt-dlp = "^2024.01.01"
+opencv-python = "^4.7.0"
+numpy = "^1.25.0"
+tensorflow = "^2.12"
+urllib3 = "^1.26"
+tensorflow-hub = "^0.16.1"
+
+[tool.poetry.group.dev.dependencies]
+ipykernel = "^6.29.5"
+pyright = "^1.1.379"
+ruff = "^0.6.4"
+black = "^24.10.0"
+pylint = "^3.3.2"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pyright]
+venv = ".venv"
+venvPath = "."
+typeCheckingMode = "strict"
+include = ["src", "notebooks"]
